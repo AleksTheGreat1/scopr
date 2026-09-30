@@ -1,0 +1,15 @@
+# Environments
+tether_env/
+venv/
+env/
+
+# Secrets
+.env
+
+# Database
+*.db
+tether.db
+
+# Python caches
+__pycache__/
+*.pyc
