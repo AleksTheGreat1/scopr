@@ -64,7 +64,7 @@ At a high level, Scopr sits between an AI agent and the tools or resources it ne
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/scopr.git
+git clone https://github.com/AleksTheGreat1/scopr.git
 cd scopr
 ```
 
@@ -190,7 +190,7 @@ scopr/
 │   ├── server/
 │   │   ├── main.py
 │   │   ├── schema.sql
-│   │   └── scoprr.db
+│   │   └── scopr.db
 │   │
 │   └── sdk/
 │       └── scopr_sdk.py
