@@ -1,5 +1,5 @@
 # Environments
-tether_env/
+scopr_env/
 venv/
 env/
 
@@ -8,7 +8,7 @@ env/
 
 # Database
 *.db
-tether.db
+scopr.db
 
 # Python caches
 __pycache__/
