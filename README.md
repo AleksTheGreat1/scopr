@@ -1,37 +1,25 @@
-# Scopr 🔒🤖
+# Scopr 🎯
 
-> **OAuth for AI agents.** Scoped identity, instant revocation, and decorator-based tool protection for autonomous software.
+> **Scoped authorization and runtime permission guard for autonomous AI agents.**
 
-When an AI agent acts on someone's behalf, whether booking a flight, modifying a codebase, or calling an enterprise API, it often needs to be given raw credentials such as a real password or a full-access API key.
+When you give an AI agent access to your system tools — GitHub, a database, a server — handing it a permanent API key is a serious security risk. Scopr acts as an intermediary authorization layer: it issues time-boxed, scope-limited JWTs to agents and forces them to re-authenticate before executing sensitive actions, giving you an instant kill-switch if an agent goes rogue.
 
-That's a massive security risk with no standard, developer-friendly solution.
-
-**Scopr** provides a lightweight identity and permissions layer for AI agents, allowing them to operate using **scoped, time-limited tokens instead of raw credentials**.
+> **Status: Early development.** Core authorization, revocation, and audit logging work and are covered by tests, but Scopr has not yet had independent security review. Treat it as a prototype, not production-hardened infrastructure, until noted otherwise.
 
 ---
 
-## Features
+## Key Features
 
-* **🔐 Scoped Access**
-  Restrict agents to exact permissions, such as `github:repo:write`, instead of granting full account access.
-
-* **🛡️ Decorator Protection**
-  Secure local agent tools or functions instantly using `@scopr.protect(agent_id, scope)`.
-
-* **⚡ Instant Revocation**
-  Immediately cut off an agent's access using a kill switch, without changing underlying passwords or API keys.
-
-* **📋 Structured Event Audit Logging**
-  Maintain a time-stamped history of every action an agent attempts or executes.
-
-* **💻 Zero-Infra / Local First**
-  Built with FastAPI and SQLite, allowing developers to get started locally with minimal infrastructure.
+* **🔐 Scoped Authorization** — Agents only get access to the specific tools they need, e.g. `github:repo:write`, instead of a full-access credential.
+* **⏱️ Time-Boxed Tokens** — JWT access tokens expire automatically (default 15 minutes).
+* **⚡ Instant Kill-Switch** — Revoking an agent invalidates its access on the very next action, even for tokens already issued — not just future ones.
+* **📋 Structured Event Audit Logging** — Every token minted, action executed, and revocation triggered is logged to a local SQLite database for inspection.
+* **🔑 Admin-Gated Operations** — Token issuance and revocation both require an admin key, so agent identity alone isn't enough to mint or kill access.
+* **💻 Zero Vendor Lock-In** — Fully local and self-hosted via FastAPI; no external service dependency.
 
 ---
 
 ## Architecture
-
-At a high level, Scopr sits between an AI agent and the tools or resources it needs to access.
 
 ```text
 ┌─────────────────┐
@@ -61,47 +49,41 @@ At a high level, Scopr sits between an AI agent and the tools or resources it ne
 
 ## Quickstart
 
-### 1. Clone the Repository
+### 1. Clone and Install
 
 ```bash
 git clone https://github.com/AleksTheGreat1/scopr.git
 cd scopr
+pip install -e .
 ```
 
-### 2. Create a Virtual Environment
+### 2. Set Your Secret Keys
 
-```bash
-python3 -m venv scopr_env
-source scopr_env/bin/activate
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install fastapi uvicorn pyjwt requests python-dotenv
-```
-
-### 4. Configure Environment Variables
-
-Create a `.env` file in the root directory to hold your cryptographic secret:
+Create a `.env` file in the root directory (or export these directly):
 
 ```bash
 echo "SCOPR_SECRET_KEY=your_super_secure_random_string" > .env
 ```
 
-### 5. Initialize the Database
+<!-- Once the admin key and JWT signing key are split in code, replace the
+     line above with the two separate keys below:
+echo "SCOPR_SECRET_KEY=your_jwt_signing_secret" > .env
+echo "SCOPR_ADMIN_KEY=your_admin_key" >> .env
+-->
+
+### 3. Initialize the Database
 
 ```bash
 sqlite3 scopr/server/scopr.db < scopr/server/schema.sql
 ```
 
-### 6. Start the Server
+### 4. Start the Server
 
 ```bash
 uvicorn scopr.server.main:app --reload
 ```
 
-The interactive API documentation will be available at:
+Interactive API docs will be available at:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -113,38 +95,43 @@ http://127.0.0.1:8000/docs
 
 ### Python SDK & Decorators
 
-Scopr is designed to make protecting an agent tool as simple as adding a decorator.
+Scopr is designed to make protecting an agent tool as simple as adding a decorator or a single call.
 
 ```python
+import os
 from scopr.sdk.scopr_sdk import ScoprClient
 
-# Initialize the client
-scopr = ScoprClient("http://127.0.0.1:8000")
+# Initialize the client with your admin key
+scopr = ScoprClient(admin_key=os.getenv("SCOPR_SECRET_KEY"))
 
+AGENT_ID = "agent_123"
+REQUIRED_SCOPE = "github:repo:write"
 
-# Secure any agent tool with a single decorator
-@scopr.protect(
-    agent_id="agent_123",
-    scope="github:repo:write"
+# The SDK automatically handles token fetching, caching, and 401 retries
+result = scopr.execute_action(
+    agent_id=AGENT_ID,
+    scope=REQUIRED_SCOPE,
+    endpoint="/resource/github/commit",
+    payload={"commit_message": "Fixed bug in core engine"}
 )
+
+print(result)
+```
+
+Or protect a tool function directly with the decorator:
+
+```python
+@scopr.protect(agent_id="agent_123", scope="github:repo:write")
 def push_code_to_github(commit_message: str):
     print(f"Pushing commit -> {commit_message}")
     return {"status": "success"}
 
-
-# Run the protected tool
 push_code_to_github("Fix critical security bug")
 ```
-
-The decorator allows Scopr to validate the agent's identity and requested scope before allowing the protected function to execute.
 
 ---
 
 ## Example Permission Scopes
-
-Scopr uses granular scopes to control what an agent is allowed to do.
-
-Examples:
 
 ```text
 github:repo:read
@@ -167,18 +154,29 @@ The goal is to give an agent **only the permissions it actually needs**, rather 
 
 ## Agent Revocation
 
-Agents can be revoked immediately when access needs to be terminated via the API.
+Agents can be revoked immediately when access needs to be terminated, via the admin-gated API:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/agents/agent_123/revoke
+curl -X POST http://127.0.0.1:8000/agents/agent_123/revoke \
+  -H "X-Admin-Key: your_super_secure_random_string"
 ```
 
-Once revoked, any protected operations will instantly reject requests from that agent.
+Once revoked, any protected operation — including with a token issued *before* revocation — is rejected on its next use.
 
-> **Note:** If you are testing locally and need to restore an agent, you can run:
+> **Note:** For local testing, you can restore an agent directly:
 > ```bash
 > sqlite3 scopr/server/scopr.db "UPDATE agents SET status = 'active' WHERE agent_id = 'agent_123';"
 > ```
+
+---
+
+## Security & Testing
+
+Scopr ships with a `pytest` suite covering token tampering, scope escalation, cross-agent access, and instant revocation edge cases, using an isolated temporary database per run.
+
+```bash
+pytest test_security.py -v
+```
 
 ---
 
@@ -189,32 +187,31 @@ scopr/
 ├── scopr/
 │   ├── server/
 │   │   ├── main.py
-│   │   ├── schema.sql
-│   │   └── scopr.db
+│   │   └── schema.sql
 │   │
 │   └── sdk/
 │       └── scopr_sdk.py
 │
+├── test_security.py
+├── pyproject.toml
 ├── README.md
-└── ...
+└── LICENSE
 ```
 
 ---
 
 ## Roadmap
 
-Potential future development areas include:
-
-* [ ] Token expiration and automatic rotation
+* [ ] Split admin key from JWT signing key
+* [ ] Per-agent credentials (move off a single shared admin key)
+* [ ] Token versioning / jti-based revocation
 * [ ] OAuth provider integrations
-* [ ] More granular permission policies
+* [ ] More granular, policy-based permissions
 * [ ] Agent-to-agent authorization
 * [ ] Cloud deployment support
 * [ ] PostgreSQL support
 * [ ] Web-based administration dashboard
-* [ ] Expanded audit and monitoring capabilities
-* [ ] Integration with popular AI agent frameworks
-* [ ] Production-grade authentication and key management
+* [ ] Integration with popular AI agent frameworks (MCP, LangChain, CrewAI, etc.)
 
 ---
 
@@ -226,29 +223,11 @@ Scopr follows a simple principle:
 
 Instead of giving an autonomous system a permanent credential with broad permissions, Scopr aims to provide:
 
-1. **Identity**: Know which agent is making the request.
-2. **Authorization**: Determine exactly what that agent is allowed to do.
-3. **Expiration**: Limit how long access remains valid.
-4. **Revocation**: Provide an immediate way to terminate access.
-5. **Auditability**: Record what the agent attempted and executed.
-
----
-
-## Development
-
-Start the local development server with:
-
-```bash
-uvicorn scopr.server.main:app --reload
-```
-
-Then open:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-FastAPI's interactive documentation can be used to explore and test the available endpoints.
+1. **Identity** — Know which agent is making the request.
+2. **Authorization** — Determine exactly what that agent is allowed to do.
+3. **Expiration** — Limit how long access remains valid.
+4. **Revocation** — Provide an immediate way to terminate access.
+5. **Auditability** — Record what the agent attempted and executed.
 
 ---
 
