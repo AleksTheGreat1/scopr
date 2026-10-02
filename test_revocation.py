@@ -1,7 +1,7 @@
 import requests
 from scopr.sdk.scopr_sdk import ScoprClient
 
-# Initialize Tether client and server base URL
+# Initialize Scoprr client and server base URL
 BASE_URL = "http://127.0.0.1:8000"
 scopr = ScoprClient(BASE_URL)
 AGENT_ID = "agent_123"

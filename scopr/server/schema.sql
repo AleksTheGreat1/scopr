@@ -18,3 +18,11 @@ CREATE TABLE agent_scopes (
     agent_id TEXT REFERENCES agents(agent_id),
     scope TEXT NOT NULL
 );
+
+CREATE TABLE audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);

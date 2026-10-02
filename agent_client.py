@@ -6,7 +6,7 @@ SCOPE = "github:repo:write"
 
 print("🤖 AI Agent initiating authentication workflow...")
 
-# Step 1: Request an access token from Tether
+# Step 1: Request an access token from Scopr
 token_res = requests.post(
     f"{BASE_URL}/oauth/token",
     params={"agent_id": AGENT_ID, "requested_scope": SCOPE}

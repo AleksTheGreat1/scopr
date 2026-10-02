@@ -5,7 +5,7 @@ scopr = ScoprClient("http://127.0.0.1:8000")
 AGENT_ID = "agent_123"
 SCOPE = "github:repo:write"
 
-# Define a standard tool function secured with the Tether decorator
+# Define a standard tool function secured with the Scopr decorator
 @scopr.protect(agent_id=AGENT_ID, scope=SCOPE)
 def push_code_to_github(commit_message: str):
     print(f"🚀 Executing tool logic: Pushing commit -> '{commit_message}'")
