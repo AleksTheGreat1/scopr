@@ -3,7 +3,6 @@ import inspect
 from typing import Any, Callable, Dict, Optional, Tuple
 import requests
 
-
 class ScoprClient:
     def __init__(
         self,
@@ -15,11 +14,9 @@ class ScoprClient:
         self.admin_key = admin_key
         self.timeout = timeout
         self._cached_tokens: Dict[Tuple[str, str], str] = {}
-        # Step 8: Reusable HTTP session for connection pooling
         self.session = requests.Session()
 
     def get_token(self, agent_id: str, scope: str, expires_in_minutes: int = 15) -> str:
-        """Requests a scoped, time-limited token using the Admin Key."""
         headers = {"X-Admin-Key": self.admin_key} if self.admin_key else {}
         response = self.session.post(
             f"{self.base_url}/oauth/token",
@@ -42,7 +39,6 @@ class ScoprClient:
         return token
 
     def verify_token(self, token: str) -> dict:
-        """Verifies a token with the Scopr server."""
         headers = {"Authorization": f"Bearer {token}"}
         response = self.session.post(
             f"{self.base_url}/oauth/verify",
@@ -61,7 +57,6 @@ class ScoprClient:
         endpoint: str,
         payload: Optional[dict] = None,
     ) -> dict:
-        """Acquires a token and executes an action against a protected endpoint."""
         token = self._cached_tokens.get((agent_id, scope))
         if not token:
             token = self.get_token(agent_id, scope)
@@ -71,7 +66,6 @@ class ScoprClient:
 
         res = self.session.post(url, headers=headers, json=payload or {}, timeout=self.timeout)
 
-        # Retry once on 401 in case token expired
         if res.status_code == 401:
             token = self.get_token(agent_id, scope)
             headers = {"Authorization": f"Bearer {token}"}
@@ -83,23 +77,15 @@ class ScoprClient:
         return res.json()
 
     def protect(self, agent_id: str, scope: str):
-        """Genuine runtime guard decorator (Step 5).
-        
-        Verifies authorization with Scopr and injects the verified context
-        (scopr_token / scopr_auth) into the tool function if it accepts it.
-        """
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             sig = inspect.signature(func)
 
             @functools.wraps(func)
             def wrapper(*args: Any, **kwargs: Any) -> Any:
-                # 1. Fetch fresh active token from Scopr
                 token = self.get_token(agent_id, scope)
-                
-                # 2. Verify token and claims against active policy
                 verified = self.verify_token(token)
 
-                # 3. Inject authorization proof into function parameters if accepted
+                # Dynamically inject the verified context if the tool accepts it
                 if "scopr_token" in sig.parameters:
                     kwargs["scopr_token"] = token
                 if "scopr_auth" in sig.parameters:
