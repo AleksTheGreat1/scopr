@@ -1,13 +1,13 @@
 import os
 from scopr.sdk.scopr_sdk import ScoprClient
 
-# Initialize the Tether client pointing to your local server
+# Initialize the Scopr client pointing to your local server
 scopr = ScoprClient()
 
 AGENT_ID = "agent_123"
 REQUIRED_SCOPE = "github:repo:write"
 
-print("🛡️ Initializing Tether SDK wrapper for autonomous agent...")
+print("🛡️ Initializing Scopr SDK wrapper for autonomous agent...")
 
 try:
     # 1. Execute a protected tool call cleanly through the SDK

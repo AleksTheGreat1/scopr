@@ -21,14 +21,14 @@ class ScoprClient:
         data = response.json()
         token = data["access_token"]
         
-        # FIX: Key the cache by both agent_id and scope to prevent cross-agent token leakage
+        # Key the cache by both agent_id and scope to prevent cross-agent token leakage
         self._cached_tokens[(agent_id, scope)] = token
         return token
 
     def execute_action(self, agent_id: str, scope: str, endpoint: str, payload: dict = None) -> dict:
         """Automatically acquires a token (or uses cached) and executes a protected resource action."""
         
-        # FIX: Look up the cache using the combined key
+        # Look up the cache using the combined key
         token = self._cached_tokens.get((agent_id, scope))
         if not token:
             token = self.get_token(agent_id, scope)
@@ -38,8 +38,8 @@ class ScoprClient:
         
         res = requests.post(url, headers=headers, json=payload or {})
         
-        # If token expired or was unauthorized, try refreshing once
-        if res.status_code in [401, 403]:
+        # FIX: Only retry on 401 (token expired/unauthenticated). 403 means permanently forbidden.
+        if res.status_code == 401:
             token = self.get_token(agent_id, scope)
             headers = {"Authorization": f"Bearer {token}"}
             res = requests.post(url, headers=headers, json=payload or {})

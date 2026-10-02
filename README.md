@@ -21,7 +21,7 @@ That's a massive security risk with no standard, developer-friendly solution.
 * **⚡ Instant Revocation**
   Immediately cut off an agent's access using a kill switch, without changing underlying passwords or API keys.
 
-* **📋 Immutable Audit Trails**
+* **📋 Structured Event Audit Logging**
   Maintain a time-stamped history of every action an agent attempts or executes.
 
 * **💻 Zero-Infra / Local First**
